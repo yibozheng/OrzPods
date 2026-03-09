@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OzPods</string>
+    <string name="scan_notification_channel">BLE Scanning</string>
+    <string name="scan_notification_title">OzPods is scanning</string>
+    <string name="scan_notification_text">Monitoring nearby AirPods</string>
+</resources>

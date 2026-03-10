@@ -9,8 +9,10 @@ import com.ozpods.data.model.AirPodsDevice
 import com.ozpods.data.repository.AirPodsRepository
 import com.ozpods.service.BleScanService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -29,11 +31,12 @@ class AirPodsViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private var isScanning = false
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
     fun startScanning() {
-        if (isScanning) return
-        isScanning = true
+        if (_isScanning.value) return
+        _isScanning.value = true
         val intent = BleScanService.startIntent(application)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             application.startForegroundService(intent)
@@ -43,9 +46,19 @@ class AirPodsViewModel @Inject constructor(
     }
 
     fun stopScanning() {
-        if (!isScanning) return
-        isScanning = false
+        if (!_isScanning.value) return
+        _isScanning.value = false
         application.startService(BleScanService.stopIntent(application))
+    }
+
+    fun toggleScanning() {
+        if (_isScanning.value) stopScanning() else startScanning()
+    }
+
+    fun refresh() {
+        repository.clear()
+        stopScanning()
+        startScanning()
     }
 
     override fun onCleared() {

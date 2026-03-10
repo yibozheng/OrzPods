@@ -14,10 +14,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ozpods.data.model.AirPodsDevice
+import kotlinx.coroutines.delay
 @Composable
 fun DeviceCard(device: AirPodsDevice, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth(),
@@ -39,7 +45,10 @@ fun DeviceCard(device: AirPodsDevice, modifier: Modifier = Modifier) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                SignalStrengthBadge(rssi = device.rssi)
+                Column(horizontalAlignment = Alignment.End) {
+                    SignalStrengthBadge(rssi = device.rssi)
+                    LastSeenText(lastSeen = device.lastSeen)
+                }
             }
             if (device.battery.isAnyAvailable) {
                 BatteryRow(battery = device.battery,
@@ -59,6 +68,26 @@ private fun SignalStrengthBadge(rssi: Int) {
         rssi > -90 -> "Weak"; else -> "Far"
     }
     Text(text = "$strength ($rssi dBm)", style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+@Composable
+private fun LastSeenText(lastSeen: Long) {
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            tick++
+        }
+    }
+    // 读取 tick 触发重组
+    tick
+    val elapsed = (System.currentTimeMillis() - lastSeen) / 1000
+    val text = when {
+        elapsed < 5 -> "Just now"
+        elapsed < 60 -> "${elapsed}s ago"
+        else -> "${elapsed / 60}m ago"
+    }
+    Text(text = text, style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 private fun buildStatusText(device: AirPodsDevice): String {

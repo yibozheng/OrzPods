@@ -1,6 +1,8 @@
 package com.ozpods.ui.screens
 import android.Manifest
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -20,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,12 +33,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: AirPodsViewModel = hiltViewModel()) {
+fun HomeScreen(
+    onDeviceClick: (String) -> Unit = {},
+    viewModel: AirPodsViewModel = hiltViewModel()
+) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+    val bluetoothEnabled by viewModel.bluetoothEnabled.collectAsStateWithLifecycle()
+    val scanError by viewModel.scanError.collectAsStateWithLifecycle()
     var permissionsGranted by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -46,14 +55,33 @@ fun HomeScreen(viewModel: AirPodsViewModel = hiltViewModel()) {
         if (permissionsGranted) viewModel.startScanning()
         onDispose { }
     }
+
+    // 扫描错误 Snackbar
+    LaunchedEffect(scanError) {
+        scanError?.let { error ->
+            val result = snackbarHostState.showSnackbar(
+                message = error,
+                actionLabel = "Retry",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.dismissError()
+                viewModel.refresh()
+            } else {
+                viewModel.dismissError()
+            }
+        }
+    }
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             LargeTopAppBar(
                 title = { Text("OzPods") },
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    if (permissionsGranted) {
+                    if (permissionsGranted && bluetoothEnabled) {
                         IconButton(onClick = { viewModel.toggleScanning() }) {
                             Icon(
                                 imageVector = if (isScanning) Icons.Rounded.BluetoothSearching
@@ -68,15 +96,31 @@ fun HomeScreen(viewModel: AirPodsViewModel = hiltViewModel()) {
             )
         }
     ) { padding ->
-        AnimatedVisibility(visible = !permissionsGranted, enter = fadeIn(), exit = fadeOut()) {
+        // 优先级：蓝牙关闭 > 权限未授予 > 空列表 > 设备列表
+        AnimatedVisibility(
+            visible = permissionsGranted && !bluetoothEnabled,
+            enter = fadeIn(), exit = fadeOut()
+        ) {
+            BluetoothOffState(modifier = Modifier.padding(padding))
+        }
+        AnimatedVisibility(
+            visible = !permissionsGranted && bluetoothEnabled,
+            enter = fadeIn(), exit = fadeOut()
+        ) {
             PermissionRequest(modifier = Modifier.padding(padding),
                 onRequestPermissions = { permissionLauncher.launch(requiredPermissions()) })
         }
-        AnimatedVisibility(visible = permissionsGranted && devices.isEmpty(),
+        AnimatedVisibility(
+            visible = !permissionsGranted && !bluetoothEnabled,
+            enter = fadeIn(), exit = fadeOut()
+        ) {
+            BluetoothOffState(modifier = Modifier.padding(padding))
+        }
+        AnimatedVisibility(visible = permissionsGranted && bluetoothEnabled && devices.isEmpty(),
             enter = fadeIn(), exit = fadeOut()) {
             EmptyState(isScanning = isScanning, modifier = Modifier.padding(padding))
         }
-        AnimatedVisibility(visible = permissionsGranted && devices.isNotEmpty(),
+        AnimatedVisibility(visible = permissionsGranted && bluetoothEnabled && devices.isNotEmpty(),
             enter = fadeIn(), exit = fadeOut()) {
             var isRefreshing by remember { mutableStateOf(false) }
             val pullToRefreshState = rememberPullToRefreshState()
@@ -99,10 +143,35 @@ fun HomeScreen(viewModel: AirPodsViewModel = hiltViewModel()) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(items = devices, key = { it.address }) { device ->
-                        DeviceCard(device = device, modifier = Modifier.animateItem())
+                        DeviceCard(
+                            device = device,
+                            onClick = { onDeviceClick(device.address) },
+                            modifier = Modifier.animateItem()
+                        )
                     }
                 }
             }
+        }
+    }
+}
+@Composable
+private fun BluetoothOffState(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(32.dp)) {
+            Icon(Icons.Rounded.BluetoothDisabled, null,
+                tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(64.dp))
+            Text("Bluetooth is turned off",
+                style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+            Text("Please enable Bluetooth to scan for nearby AirPods.",
+                style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = {
+                context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+            }) { Text("Open Bluetooth Settings") }
         }
     }
 }

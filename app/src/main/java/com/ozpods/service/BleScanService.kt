@@ -44,6 +44,14 @@ class BleScanService : Service() {
         }
         override fun onScanFailed(errorCode: Int) {
             Log.e(TAG, "BLE scan failed with error code: $errorCode")
+            val message = when (errorCode) {
+                ScanCallback.SCAN_FAILED_ALREADY_STARTED -> "Scan already in progress"
+                ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED -> "App registration failed"
+                ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED -> "BLE scan not supported"
+                ScanCallback.SCAN_FAILED_INTERNAL_ERROR -> "Internal scan error"
+                else -> "Scan failed (error $errorCode)"
+            }
+            repository.setScanError(message)
         }
     }
     override fun onCreate() {
@@ -76,6 +84,7 @@ class BleScanService : Service() {
         scanner = bluetoothManager?.adapter?.bluetoothLeScanner
         if (scanner == null) {
             Log.e(TAG, "BluetoothLeScanner not available")
+            repository.setScanError("Bluetooth scanner not available")
             stopSelf()
             return
         }
@@ -93,6 +102,7 @@ class BleScanService : Service() {
             Log.i(TAG, "BLE scanning started")
         } catch (e: SecurityException) {
             Log.e(TAG, "Missing BLE permissions", e)
+            repository.setScanError("Missing Bluetooth permissions")
             stopSelf()
         }
     }

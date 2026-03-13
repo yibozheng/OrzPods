@@ -10,6 +10,10 @@ import javax.inject.Singleton
 class AirPodsRepository @Inject constructor() {
     private val _devices = MutableStateFlow<Map<String, AirPodsDevice>>(emptyMap())
     val devices: StateFlow<Map<String, AirPodsDevice>> = _devices.asStateFlow()
+
+    private val _scanError = MutableStateFlow<String?>(null)
+    val scanError: StateFlow<String?> = _scanError.asStateFlow()
+
     fun updateDevice(device: AirPodsDevice) {
         _devices.update { current ->
             current.toMutableMap().apply { put(device.address, device) }
@@ -19,4 +23,5 @@ class AirPodsRepository @Inject constructor() {
         _devices.update { current -> current.filterValues { !it.isStale } }
     }
     fun clear() { _devices.value = emptyMap() }
+    fun setScanError(message: String?) { _scanError.value = message }
 }

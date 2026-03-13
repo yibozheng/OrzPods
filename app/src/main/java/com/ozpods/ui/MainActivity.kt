@@ -3,7 +3,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.ozpods.ui.screens.HomeScreen
+import com.ozpods.ui.navigation.AppNavigation
 import com.ozpods.ui.theme.OzPodsTheme
 import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
@@ -12,7 +12,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            OzPodsTheme { HomeScreen() }
+            OzPodsTheme { AppNavigation() }
         }
     }
 }

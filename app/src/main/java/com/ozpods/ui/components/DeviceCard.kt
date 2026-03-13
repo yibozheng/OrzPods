@@ -25,8 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.ozpods.data.model.AirPodsDevice
 import kotlinx.coroutines.delay
 @Composable
-fun DeviceCard(device: AirPodsDevice, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth(),
+fun DeviceCard(device: AirPodsDevice, onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.fillMaxWidth(), onClick = onClick,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Column(modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
